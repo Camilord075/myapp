@@ -45,6 +45,12 @@ class _PlotRegistrationScreenState extends State<PlotRegistrationScreen> {
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            context.go('/cultivation-zones');
+          },
+        ),
         title: Row(
           children: [
             Container(
@@ -190,7 +196,6 @@ class _PlotRegistrationScreenState extends State<PlotRegistrationScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement plot registration logic
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Parcela registrada exitosamente!')),
                   );

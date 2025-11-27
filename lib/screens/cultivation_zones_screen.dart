@@ -1,47 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class CultivationZonesScreen extends StatelessWidget {
+class CultivationZonesScreen extends StatefulWidget {
   const CultivationZonesScreen({super.key});
+
+  @override
+  State<CultivationZonesScreen> createState() => _CultivationZonesScreenState();
+}
+
+class _CultivationZonesScreenState extends State<CultivationZonesScreen> {
+  String _userName = 'Cargando...';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        setState(() {
+          _userName = user.displayName!;
+        });
+      } else {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          setState(() {
+            _userName = userDoc.get('fullName') ?? 'Usuario';
+          });
+        } else {
+          setState(() {
+            _userName = 'Usuario';
+          });
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
-
-    // Dummy data for cultivation zones
-    final List<Map<String, String>> zones = [
-      {
-        'name': 'La Esperanza',
-        'size': '1 ha (1000 m²)',
-        'crops': 'Hortalizas y vegetales',
-        'details': 'Tomate',
-        'status': 'Disponible',
-      },
-      {
-        'name': 'El Trigal',
-        'size': '5 ha (5000 m²)',
-        'crops': 'Cereales',
-        'details': 'Trigo',
-        'status': 'Disponible',
-      },
-      {
-        'name': 'El Maizal',
-        'size': '2 ha (2000 m²)',
-        'crops': 'Granos básicos',
-        'details': 'Maíz, Frijol',
-        'status': 'Ocupado',
-      },
-    ];
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white), // Explicit back button
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            context.go('/dashboard'); // Navigate back to dashboard
+            context.go('/dashboard');
           },
         ),
         title: Row(
@@ -52,16 +64,10 @@ class CultivationZonesScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  'Logo',
-                  style: GoogleFonts.oswald(
-                    color: colorScheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                image: DecorationImage(
+                    image: AssetImage('lib/assets/logo_asset.png'),
+                    fit: BoxFit.cover
+                )
               ),
             ),
             const SizedBox(width: 8),
@@ -77,7 +83,7 @@ class CultivationZonesScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Francisco Pepe',
+                  _userName,
                   style: GoogleFonts.roboto(
                     color: Colors.white70,
                     fontSize: 14,
@@ -96,58 +102,80 @@ class CultivationZonesScreen extends StatelessWidget {
             child: Text(
               'Zonas de cultivo',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: zones.length,
-              itemBuilder: (context, index) {
-                final zone = zones[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          zone['name']!,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('parcels')
+                  .where('userId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No hay parcelas registradas.'));
+                }
+
+                final parcels = snapshot.data!.docs;
+
+                return ListView.builder(
+                  itemCount: parcels.length,
+                  itemBuilder: (context, index) {
+                    final parcel = parcels[index].data() as Map<String, dynamic>;
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              parcel['name']!,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: colorScheme.primary,
                               ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tamaño: ${zone['size']}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        Text(
-                          'Hortalizas y vegetales: ${zone['crops']}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        Text(
-                          zone['details']!,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: Text(
-                            zone['status']!,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: zone['status'] == 'Disponible' ? Colors.green : Colors.red,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tamaño: ${parcel['size']}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              'Ubicación: ${parcel['location']}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              'Cultivos: ${parcel['crops']}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.bottomRight,
+                              child: Text(
+                                parcel['status'] ?? 'N/A',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: parcel['status'] == 'Disponible' ? Colors.green : Colors.orange,
                                   fontWeight: FontWeight.bold,
                                 ),
-                          ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -156,7 +184,7 @@ class CultivationZonesScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          context.go('/plot-registration');
+          context.go('/parcel-creation');
         },
         backgroundColor: colorScheme.secondary,
         child: const Icon(Icons.add, color: Colors.white),

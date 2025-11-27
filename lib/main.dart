@@ -2,15 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:myapp/screens/login_screen.dart'; // Import the actual LoginScreen
-import 'package:myapp/screens/dashboard_screen.dart'; // Import DashboardScreen
-import 'package:myapp/screens/cultivation_zones_screen.dart'; // Import CultivationZonesScreen
-import 'package:myapp/screens/plot_registration_screen.dart'; // Import PlotRegistrationScreen
-import 'package:myapp/screens/user_registration_screen.dart'; // Import UserRegistrationScreen
-import 'package:myapp/screens/participation_registration_screen.dart'; // Import ParticipationRegistrationScreen
+import 'package:myapp/screens/login_screen.dart';
+import 'package:myapp/screens/dashboard_screen.dart';
+import 'package:myapp/screens/cultivation_zones_screen.dart';
+import 'package:myapp/screens/plot_registration_screen.dart';
+import 'package:myapp/screens/user_registration_screen.dart';
+import 'package:myapp/screens/participation_registration_screen.dart';
+import 'package:myapp/screens/parcel_creation_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform
+  );
+
   runApp(
     ChangeNotifierProvider(
       create: (context) => ThemeProvider(),
@@ -35,53 +44,83 @@ class ThemeProvider with ChangeNotifier {
   }
 }
 
-final GoRouter _router = GoRouter(
-  routes: <RouteBase>[
-    GoRoute(
-      path: '/',
-      builder: (BuildContext context, GoRouterState state) {
-        return const LoginScreen();
-      },
-    ),
-    GoRoute(
-      path: '/dashboard',
-      builder: (BuildContext context, GoRouterState state) {
-        return const DashboardScreen();
-      },
-    ),
-    GoRoute(
-      path: '/cultivation-zones',
-      builder: (BuildContext context, GoRouterState state) {
-        return const CultivationZonesScreen();
-      },
-    ),
-    GoRoute(
-      path: '/plot-registration',
-      builder: (BuildContext context, GoRouterState state) {
-        return const PlotRegistrationScreen();
-      },
-    ),
-    GoRoute(
-      path: '/user-registration',
-      builder: (BuildContext context, GoRouterState state) {
-        return const UserRegistrationScreen();
-      },
-    ),
-    GoRoute(
-      path: '/participation-registration',
-      builder: (BuildContext context, GoRouterState state) {
-        return const ParticipationRegistrationScreen();
-      },
-    ),
-  ],
-);
-
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = GoRouter(
+      initialLocation: FirebaseAuth.instance.currentUser != null ? '/dashboard' : '/',
+      routes: <RouteBase>[
+        GoRoute(
+          path: '/',
+          builder: (BuildContext context, GoRouterState state) {
+            return const LoginScreen();
+          },
+        ),
+        GoRoute(
+          path: '/dashboard',
+          builder: (BuildContext context, GoRouterState state) {
+            return const DashboardScreen();
+          },
+        ),
+        GoRoute(
+          path: '/cultivation-zones',
+          builder: (BuildContext context, GoRouterState state) {
+            return const CultivationZonesScreen();
+          },
+        ),
+        GoRoute(
+          path: '/plot-registration',
+          builder: (BuildContext context, GoRouterState state) {
+            return const PlotRegistrationScreen();
+          },
+        ),
+        GoRoute(
+          path: '/user-registration',
+          builder: (BuildContext context, GoRouterState state) {
+            return const UserRegistrationScreen();
+          },
+        ),
+        GoRoute(
+          path: '/participation-registration',
+          builder: (BuildContext context, GoRouterState state) {
+            return const ParticipationRegistrationScreen();
+          },
+        ),
+        GoRoute(
+          path: '/parcel-creation',
+          builder: (BuildContext context, GoRouterState state) {
+            return const ParcelCreationScreen();
+          },
+        ),
+      ],
+      redirect: (context, state) {
+        final bool loggedIn = FirebaseAuth.instance.currentUser != null;
+        final bool loggingIn = state.matchedLocation == '/' || state.matchedLocation == '/user-registration';
+
+        if (!loggedIn && !loggingIn) {
+          return '/';
+        }
+        if (loggedIn && loggingIn) {
+          return '/dashboard';
+        }
+        return null;
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const Color primarySeedColor = Color(0xFF4CAF50); // A green color for Huertix
+    const Color primarySeedColor = Color(0xFF4CAF50);
 
     final TextTheme appTextTheme = TextTheme(
       displayLarge: GoogleFonts.oswald(fontSize: 57, fontWeight: FontWeight.bold),
@@ -137,7 +176,7 @@ class MyApp extends StatelessWidget {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           foregroundColor: Colors.black,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer, // Corrected line
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           textStyle: appTextTheme.labelLarge,
@@ -167,5 +206,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-// Placeholder for DashboardScreen - NO LONGER NEEDED AS IT'S IN ITS OWN FILE

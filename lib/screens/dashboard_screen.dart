@@ -1,9 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String _userName = 'Cargando...';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        setState(() {
+          _userName = user.displayName!;
+        });
+      } else {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          setState(() {
+            _userName = userDoc.get('fullName') ?? 'Usuario';
+          });
+        } else {
+          setState(() {
+            _userName = 'Usuario';
+          });
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,16 +58,10 @@ class DashboardScreen extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  'Logo',
-                  style: GoogleFonts.oswald(
-                    color: colorScheme.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                image: DecorationImage(
+                  image: AssetImage('lib/assets/logo_asset.png'),
+                  fit: BoxFit.cover
+                )
               ),
             ),
             const SizedBox(width: 8),
@@ -46,7 +77,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Francisco Pepe',
+                  _userName,
                   style: GoogleFonts.roboto(
                     color: Colors.white70,
                     fontSize: 14,
@@ -59,8 +90,11 @@ class DashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              context.go('/');
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (mounted) {
+                context.go('/');
+              }
             },
           ),
         ],
@@ -73,16 +107,16 @@ class DashboardScreen extends StatelessWidget {
             Text(
               'Dashboard',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 24),
             _buildDashboardCard(
               context,
               title: 'Zonas de cultivo',
               description:
-                  'Visualiza y explora las distintas parcelas del huerto, con información sobre los cultivos actuales, responsables y estado actual.',
-              imageAsset: 'assets/images/placeholder.png', // Placeholder image
+              'Visualiza y explora las distintas parcelas del huerto, con información sobre los cultivos actuales, responsables y estado actual.',
+              imageAsset: 'lib/assets/zona_asset.png',
               onTap: () {
                 context.go('/cultivation-zones');
               },
@@ -92,10 +126,10 @@ class DashboardScreen extends StatelessWidget {
               context,
               title: 'Mi Participación',
               description:
-                  'Consulta tu historial de actividades en el huerto, el tiempo dedicado y tareas realizadas.',
-              imageAsset: 'assets/images/placeholder.png', // Placeholder image
+              'Consulta tu historial de actividades en el huerto, el tiempo dedicado y tareas realizadas.',
+              imageAsset: 'lib/assets/participacion_asset.png',
               onTap: () {
-                context.go('/participation-registration'); // Navigate to ParticipationRegistrationScreen
+                context.go('/participation-registration');
               },
             ),
             const SizedBox(height: 16),
@@ -103,10 +137,10 @@ class DashboardScreen extends StatelessWidget {
               context,
               title: 'Educación',
               description:
-                  'Sección educativa para promover prácticas sostenibles y conocimientos básicos sobre agricultura urbana.',
-              imageAsset: 'assets/images/placeholder.png', // Placeholder image
+              'Sección educativa para promover prácticas sostenibles y conocimientos básicos sobre agricultura urbana.',
+              imageAsset: 'lib/assets/educacion_asset.png',
               onTap: () {
-                // TODO: Implement navigation to Education screen
+
               },
             ),
           ],
@@ -139,9 +173,9 @@ class DashboardScreen extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.primary,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -156,10 +190,13 @@ class DashboardScreen extends StatelessWidget {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300], // Placeholder for image
+                  color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: AssetImage('$imageAsset'),
+                    fit: BoxFit.cover
+                  )
                 ),
-                child: const Center(child: Text('Imagen')), // Placeholder text
               ),
             ],
           ),

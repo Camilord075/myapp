@@ -2,73 +2,78 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class UserRegistrationScreen extends StatefulWidget {
-  const UserRegistrationScreen({super.key});
+class ParcelCreationScreen extends StatefulWidget {
+  const ParcelCreationScreen({super.key});
 
   @override
-  State<UserRegistrationScreen> createState() => _UserRegistrationScreenState();
+  State<ParcelCreationScreen> createState() => _ParcelCreationScreenState();
 }
 
-class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
+class _ParcelCreationScreenState extends State<ParcelCreationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _residenceController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _sizeController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _cropsController = TextEditingController();
+  String? _selectedStatus;
   bool _isLoading = false;
+
+  final List<String> _statuses = [
+    'Disponible',
+    'Ocupado',
+    'En preparación',
+    'Cosechado',
+  ];
 
   @override
   void dispose() {
-    _fullNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    _residenceController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _nameController.dispose();
+    _sizeController.dispose();
+    _locationController.dispose();
+    _cropsController.dispose();
     super.dispose();
   }
 
-  Future<void> _registerUser() async {
+  Future<void> _createParcel() async {
     if (_formKey.currentState!.validate()) {
-      if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Las contraseñas no coinciden.')),
-        );
-        return;
-      }
-
       setState(() {
         _isLoading = true;
       });
 
-      try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text,
-          password: _passwordController.text,
-        );
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Usuario registrado exitosamente!')),
+            const SnackBar(content: Text('Debes iniciar sesión para crear una parcela.')),
           );
-          // Optionally update user profile with name or other details
-          await FirebaseAuth.instance.currentUser?.updateDisplayName(_fullNameController.text);
-          context.go('/dashboard'); // Navigate to dashboard after successful registration
+          context.go('/');
         }
-      } on FirebaseAuthException catch (e) {
-        String message = 'Ocurrió un error al registrar el usuario.';
-        if (e.code == 'weak-password') {
-          message = 'La contraseña es demasiado débil.';
-        } else if (e.code == 'email-already-in-use') {
-          message = 'Ya existe una cuenta con este correo electrónico.';
-        } else if (e.code == 'invalid-email') {
-          message = 'El formato del correo electrónico es inválido.';
-        }
+        return;
+      }
+
+      try {
+        await FirebaseFirestore.instance.collection('parcels').add({
+          'name': _nameController.text,
+          'size': '${_sizeController.text} ha',
+          'location': _locationController.text,
+          'crops': _cropsController.text,
+          'status': _selectedStatus ?? 'Disponible',
+          'userId': user.uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
+            const SnackBar(content: Text('Parcela registrada exitosamente!')),
+          );
+          context.go('/cultivation-zones');
+        }
+      } on FirebaseException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al registrar parcela: ${e.message}')),
           );
         }
       } catch (e) {
@@ -96,9 +101,9 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white), // Explicit back button
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            context.go('/'); // Navigate back to dashboard
+            context.go('/cultivation-zones');
           },
         ),
         title: Row(
@@ -128,7 +133,7 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
                   ),
                 ),
                 Text(
-                  'Registro usuario',
+                  'Nueva parcela',
                   style: GoogleFonts.roboto(
                     color: Colors.white70,
                     fontSize: 14,
@@ -147,109 +152,105 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Nombres y apellidos',
+                'Nombre de la parcela',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _fullNameController,
+                controller: _nameController,
                 decoration: const InputDecoration(
-                  hintText: 'Nombre completo',
+                  hintText: 'Ej. Mi Parcela Norte',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa tu nombre completo';
+                    return 'Por favor ingresa un nombre para la parcela';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
               Text(
-                'Correo electrónico',
+                'Tamaño en hectáreas',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: _sizeController,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  hintText: 'correo@ejemplo.com',
+                  hintText: 'Ej. 1.5',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa tu correo electrónico';
+                    return 'Por favor ingresa el tamaño de la parcela';
                   }
-                  if (!value.contains('@')) {
-                    return 'Por favor ingresa un correo electrónico válido';
+                  if (double.tryParse(value) == null) {
+                    return 'Por favor ingresa un número válido';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
               Text(
-                'Teléfono',
+                'Ubicación',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
+                controller: _locationController,
                 decoration: const InputDecoration(
-                  hintText: 'Ej. 1234-5678',
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Zona de residencia o cercanía',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _residenceController,
-                decoration: const InputDecoration(
-                  hintText: 'Ej. San Salvador',
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Contraseña',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  hintText: '********',
+                  hintText: 'Ej. Zona 3, Finca El Paraíso',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Por favor ingresa una contraseña';
-                  }
-                  if (value.length < 6) {
-                    return 'La contraseña debe tener al menos 6 caracteres';
+                    return 'Por favor ingresa la ubicación de la parcela';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 24),
               Text(
-                'Confirmación contraseña',
+                'Cultivos actuales',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: true,
+                controller: _cropsController,
                 decoration: const InputDecoration(
-                  hintText: '********',
+                  hintText: 'Ej. Tomate, Lechuga, Maíz',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Por favor confirma tu contraseña';
+                    return 'Por favor ingresa los cultivos actuales';
                   }
-                  if (value != _passwordController.text) {
-                    return 'Las contraseñas no coinciden';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Estado de la parcela',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  hintText: 'Seleccione un estado',
+                ),
+                value: _selectedStatus,
+                items: _statuses.map((String status) {
+                  return DropdownMenuItem<String>(
+                    value: status,
+                    child: Text(status),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedStatus = newValue;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor selecciona un estado';
                   }
                   return null;
                 },
@@ -258,10 +259,10 @@ class _UserRegistrationScreenState extends State<UserRegistrationScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _registerUser,
+                  onPressed: _isLoading ? null : _createParcel,
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Registrarse'),
+                      : const Text('Crear Parcela'),
                 ),
               ),
             ],
