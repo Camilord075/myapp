@@ -20,6 +20,12 @@ class _ParticipationRegistrationScreenState extends State<ParticipationRegistrat
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white), // Explicit back button
+          onPressed: () {
+            context.go('/dashboard'); // Navigate back to dashboard
+          },
+        ),
         title: Row(
           children: [
             Container(
