@@ -13,6 +13,12 @@ class UserRegistrationScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white), // Explicit back button
+          onPressed: () {
+            context.go('/'); // Navigate back to dashboard
+          },
+        ),
         title: Row(
           children: [
             Container(
